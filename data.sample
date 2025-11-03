@@ -1,0 +1,4 @@
+# a 64bytes message
+{"Version":5, "H":1, "Type":2, "N":1, "A":1, "ProcessingDate":8, "ProcessingTime":6, "TerminalName":8, "UserID":8, "ProcessingType":2, "ResponseType":2, "MessageLength":6, "Spare":14}
+
+{"Attribute":3, "Code":8, "Value":60, "SecValue":10, "Date":8, "Time":6, "Spare":25}
