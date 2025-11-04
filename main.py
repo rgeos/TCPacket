@@ -67,7 +67,13 @@ def server(ip, port):
     type=int,
     show_default=True,
 )
-@click.option("--test", help="Run 3 way handshake and exit", is_flag=True, default=False, show_default=True)
+@click.option(
+    "--test",
+    help="Run 3 way handshake and exit",
+    is_flag=True,
+    default=False,
+    show_default=True,
+)
 def client(src_ip, src_port, dst_ip, dst_port, test):
     """
     Start the client

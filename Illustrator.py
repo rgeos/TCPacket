@@ -10,6 +10,7 @@ class TCPacketIllustrator:
     """
     Render the packet structure visually
     """
+
     def __init__(self, file_path):
         self.file_path = file_path
         self.workbook = openpyxl.Workbook()
@@ -78,6 +79,7 @@ class TCPacketIllustrator:
         for index, data in enumerate(self.file_reader.read_dictionary()):
             self.create_sheet(data, index)
         self.save_workbook(output_file)
+
 
 # todo - add CLI
 # if __name__ == "__main__":
