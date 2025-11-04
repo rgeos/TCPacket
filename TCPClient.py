@@ -48,7 +48,6 @@ class TCPClient:
             print("Connection closed.")
             sys.exit(0)
 
-    # todo - move to PacketBuilder
     def perform_handshake(self):
         print("Performing TCP 3-way handshake...")
 
@@ -57,7 +56,7 @@ class TCPClient:
         ans = sr1(syn)
 
         # Check for SYN-ACK response
-        if ans and ans.haslayer(TCP) and ans[TCP].flags == (0x02 | 0x10):
+        if ans and ans.haslayer(TCP) and ans[TCP].flags == "SA":
             print("Received SYN-ACK. Sending ACK...")
             ack = IP(dst=self.server_ip) / TCP(
                 dport=self.server_port, flags="A", ack=ans[TCP].seq + 1
@@ -67,7 +66,6 @@ class TCPClient:
         else:
             print("Handshake failed.")
 
-    # todo - move to PacketBuilder
     def terminate_connection(self):
         print("Terminating TCP connection...")
         # Send FIN packet to terminate the connection
@@ -75,7 +73,7 @@ class TCPClient:
         ans = sr1(fin_packet)
 
         # Wait for FIN-ACK from the server
-        if ans and ans.haslayer(TCP) and ans[TCP].flags == (0x01 | 0x10):
+        if ans and ans.haslayer(TCP) and ans[TCP].flags == "FA":
             print("Received FIN-ACK from server. Sending final ACK...")
             final_ack = IP(dst=self.server_ip) / TCP(
                 dport=self.server_port, flags="A", ack=ans[TCP].seq + 1
