@@ -23,7 +23,9 @@ class TCPClient:
             self.perform_handshake()
             self.terminate_connection()
         except ConnectionRefusedError as e:
-            print(f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ...")
+            print(
+                f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ..."
+            )
         finally:
             self.client_socket.close()
             print("Connection closed.")
@@ -38,7 +40,9 @@ class TCPClient:
             self.client_socket.connect((self.server_ip, self.server_port))
             self.send_messages()
         except ConnectionRefusedError as e:
-            print(f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ...")
+            print(
+                f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ..."
+            )
         finally:
             self.client_socket.close()
             print("Connection closed.")
@@ -92,4 +96,3 @@ class TCPClient:
         finally:
             self.client_socket.close()
             print("Connection closed.")
-

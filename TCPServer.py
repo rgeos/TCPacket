@@ -6,11 +6,13 @@ import threading
 import socket
 import sys
 
+
 # todo - move the packet creation to PacketBuilder
 class TCPServer:
     """
     A simple TCP server that listens for incoming TCP packets.
     """
+
     def __init__(self, ip="0.0.0.0", port=12345):
         self.ip = ip
         self.port = port
