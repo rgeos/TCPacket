@@ -201,6 +201,6 @@ class TCPServer:
 
 
 # run
-if __name__ == "__main__":
-    server = TCPServer(port=99)
-    server.start()
+# if __name__ == "__main__":
+#     server = TCPServer(port=99)
+#     server.start()

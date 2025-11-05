@@ -1,20 +1,46 @@
 #!/usr/bin/env python
+import socket
 
 import click
 import threading
+
 from TCPClient import TCPClient
 from TCPServer import TCPServer
 
 
+def get_local_ip():
+    """
+    Get the local ip address
+    """
+    local_ip = socket.gethostbyname(socket.gethostname())
+    return local_ip
+
+
+def start_client(src_ip, src_port, dst_ip, dst_port):
+    """
+    Start the client
+    """
+    click.echo(f"Starting client {src_ip}:{src_port} ...")
+    click.echo(f"Connecting to {dst_ip}:{dst_port} ...\n")
+    tcp_client = TCPClient(dst_ip, dst_port)
+
+    return tcp_client
+
+
 @click.group()
 def cli():
+    pass
+
+
+@cli.group()
+def server():
     """
-    CLI options for socket connection
+    CLI options for server socket connection
     """
     pass
 
 
-@cli.command()
+@server.command()
 @click.option(
     "--ip",
     help="The server ip address to bind to",
@@ -29,20 +55,20 @@ def cli():
     type=int,
     show_default=True,
 )
-def server(ip, port):
+def start(ip, port):
     """
     Start the server
     """
     click.echo(f"Starting server... {ip}:{port}")
-    server = TCPServer(ip, port)
-    threading.Thread(target=server.start).start()
+    tcp_server = TCPServer(ip, port)
+    threading.Thread(target=tcp_server.start).start()
 
 
-@cli.command()
+@cli.group()
 @click.option(
     "--src_ip",
     help="Client's IP address",
-    default="127.0.0.1",
+    default=get_local_ip(),
     type=str,
     show_default=True,
 )
@@ -67,24 +93,53 @@ def server(ip, port):
     type=int,
     show_default=True,
 )
-@click.option(
-    "--test",
-    help="Run 3 way handshake and exit",
-    is_flag=True,
-    default=False,
-    show_default=True,
-)
-def client(src_ip, src_port, dst_ip, dst_port, test):
+@click.pass_context
+def client(ctx, src_ip, src_port, dst_ip, dst_port):
     """
-    Start the client
+    CLI options for client socket connection
     """
+    ctx.ensure_object(dict)
+    ctx.obj["src_ip"] = src_ip
+    ctx.obj["src_port"] = src_port
+    ctx.obj["dst_ip"] = dst_ip
+    ctx.obj["dst_port"] = dst_port
+
     click.echo(f"Starting client {src_ip}:{src_port} ...")
     click.echo(f"Connecting to {dst_ip}:{dst_port} ...\n")
-    client = TCPClient(dst_ip, dst_port)
-    if test:
-        click.echo(f"Performing a test towards {dst_ip}:{dst_port} ...\n")
-        client.test()
-    client.run()
+    tcp_server = TCPClient(dst_ip, dst_port)
+    return tcp_server
+
+
+@client.command(name="test")
+@click.pass_context
+def test_data(ctx):
+    """Perform a test from client to server"""
+    test_client = start_client(
+        ctx.obj["src_ip"], ctx.obj["src_port"], ctx.obj["dst_ip"], ctx.obj["dst_port"]
+    )
+    test_client.send_test_data()
+
+
+@client.command(name="cli")
+@click.pass_context
+def cli_data(ctx):
+    """Create packages from the CLI and send it to the server"""
+    cli_client = start_client(
+        ctx.obj["src_ip"], ctx.obj["src_port"], ctx.obj["dst_ip"], ctx.obj["dst_port"]
+    )
+    cli_client.send_cli_data()
+
+
+@client.command(name="file")
+@click.option("--path", type=click.Path(True), help="File to process", required=True)
+@click.pass_context
+def file_data(ctx, path):
+    """Read data from file, create packages and send it to the server"""
+    click.echo(f"Reading file {path}")
+    file_client = start_client(
+        ctx.obj["src_ip"], ctx.obj["src_port"], ctx.obj["dst_ip"], ctx.obj["dst_port"]
+    )
+    file_client.file_data(path)
 
 
 if __name__ == "__main__":
