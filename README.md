@@ -1,7 +1,10 @@
 ## Prerequisites
 
 - python 13.11 or newer
-- see requirements.txt for libraries
+- click==8.3.0 
+- et_xmlfile==2.0.0 
+- openpyxl==3.1.5 
+- scapy==2.6.1
 
 ---
 
