@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-import socket
-import sys
-
 from scapy.all import *
 from scapy.layers.inet import TCP, IP
 
