@@ -36,6 +36,12 @@ def start_client(src_ip, src_port, dst_ip, dst_port):
 
 @click.group()
 def cli():
+    """
+    Simple Server/Client application based on TCP socket
+    \n
+    This application will allow the visualization
+    and the creation of data payload on top of a TCP packet
+    """
     pass
 
 
