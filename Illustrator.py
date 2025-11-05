@@ -79,9 +79,3 @@ class TCPacketIllustrator:
         for index, data in enumerate(self.file_reader.read_dictionary()):
             self.create_sheet(data, index)
         self.save_workbook(output_file)
-
-
-# todo - add CLI
-# if __name__ == "__main__":
-#     excel_creator = TCPacketIllustrator("data.sample")
-#     excel_creator.create_excel("sample.xlsx")
