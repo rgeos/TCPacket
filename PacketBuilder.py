@@ -11,7 +11,7 @@ class PacketBuilder:
     """
 
     def __init__(self, dest_ip, dest_port, file_path):
-        self.src_ip = self._get_local_ip()
+        self.src_ip = self.get_local_ip()
         self.dest_ip = dest_ip
         self.src_port = random.randint(1024, 65535)
         self.dest_port = dest_port
@@ -21,7 +21,8 @@ class PacketBuilder:
         self.file_path = file_path
         self.file_reader = FileReader(self.file_path)
 
-    def _get_local_ip(self):
+    @staticmethod
+    def get_local_ip():
         """
         Get the IPv4 address of the local machine
         :return:
@@ -44,10 +45,11 @@ class PacketBuilder:
         Create a packet with a payload
         :return:
         """
-        self.create_payload(self.file_reader.read_payload())
+        self.create_payload(self.file_reader.read_lines())
         return self.payload
 
-    def generate_dummy_data(self, size):
+    @staticmethod
+    def generate_dummy_data(size):
         """
         Generate a dummy data
         :param size:

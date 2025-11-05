@@ -5,6 +5,8 @@ from scapy.layers.inet import TCP, IP
 import socket
 import sys
 
+from FileReader import FileReader
+
 
 class TCPClient:
     def __init__(self, server_ip="127.0.0.1", server_port=12345):
@@ -12,8 +14,9 @@ class TCPClient:
         self.server_port = server_port
         self.client_socket = None
 
-    def test(self):
+    def send_test_data(self):
         """
+        Initiate the connection with the server.
         Performing a 3 way TCP handshake test.
         """
         try:
@@ -22,23 +25,6 @@ class TCPClient:
 
             self.perform_handshake()
             self.terminate_connection()
-        except ConnectionRefusedError as e:
-            print(
-                f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ..."
-            )
-        finally:
-            self.client_socket.close()
-            print("Connection closed.")
-            sys.exit(0)
-
-    def run(self):
-        """
-        Initiate the connection with the server.
-        """
-        try:
-            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.client_socket.connect((self.server_ip, self.server_port))
-            self.send_messages()
         except ConnectionRefusedError as e:
             print(
                 f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ..."
@@ -83,8 +69,25 @@ class TCPClient:
 
         sys.exit(0)
 
-    # todo - add reading from file
-    def send_messages(self):
+    def send_cli_data(self):
+        """
+        Initiate the connection with the server.
+        Send data from CLI
+        """
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((self.server_ip, self.server_port))
+            self.cli_input()
+        except ConnectionRefusedError as e:
+            print(
+                f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ..."
+            )
+        finally:
+            self.client_socket.close()
+            print("Connection closed.")
+            sys.exit(0)
+
+    def cli_input(self):
         try:
             while True:
                 message = input("Enter message (or 'exit' to quit): ")
@@ -94,3 +97,53 @@ class TCPClient:
         finally:
             self.client_socket.close()
             print("Connection closed.")
+
+    def send_file_data(self, payload):
+        """
+        Initiate the connection with the server.
+        Send data from FILE
+        """
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((self.server_ip, self.server_port))
+            self.client_socket.sendall(payload)
+        except ConnectionRefusedError as e:
+            print(
+                f"Make sure the server {self.server_ip}:{self.server_port} is up and running.\n{e} ..."
+            )
+        finally:
+            self.client_socket.close()
+            print("Connection closed.")
+
+    def create_packet(self, data):
+        """
+        Creating a packet from data
+        """
+        ip = IP(dst=self.server_ip)
+        tcp = TCP(dport=self.server_port)
+        payload = Raw(load=data)
+
+        return ip / tcp / payload
+
+    def file_data(self, file_path):
+        """
+        Reading data from file
+        Sending each line as payload in its own packet
+        """
+        try:
+            reader = FileReader(file_path)
+            # read the files form the file
+            lines = reader.read_lines()
+
+            # iterate through each line (assumes the data is in HEX in the file)
+            for line in lines:
+                # comment out this line if the file is not HEX
+                payload_bytes = reader.hex_to_bytes(line)
+                payload = self.create_packet(payload_bytes)
+                self.send_file_data(bytes(payload))
+
+        except FileNotFoundError:
+            print("File not found.")
+        finally:
+            self.client_socket.close()
+            sys.exit(0)

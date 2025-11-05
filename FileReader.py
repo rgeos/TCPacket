@@ -18,14 +18,16 @@ class FileReader:
             if line.strip() and not line.startswith("#")
         ]
 
-    def read_payload(self):
+    def read_lines(self):
         """Reading a txt file with hex values."""
         if not os.path.isfile(self.file_path):
             raise FileNotFoundError(f"File {self.file_path} not found")
 
         with open(self.file_path, "r") as file:
-            hex_data = file.read().strip()
+            hex_lines = file.readlines()
+            clean_lines = [line.strip() for line in hex_lines if line.strip()]
+            return clean_lines
 
-        # convert hex to bytes
-        payload = bytes.fromhex(hex_data)
-        return payload
+    @staticmethod
+    def hex_to_bytes(hex_string):
+        return bytes.fromhex(hex_string)
