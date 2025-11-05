@@ -1,11 +1,18 @@
 #!/usr/bin/env python
 import socket
+import threading
+from datetime import datetime
 
 import click
-import threading
 
+from Illustrator import TCPacketIllustrator
 from TCPClient import TCPClient
 from TCPServer import TCPServer
+
+
+def get_current_datetime():
+    now = datetime.now()
+    return now.strftime("%Y_%m_%d_%H_%M_%S")
 
 
 def get_local_ip():
@@ -140,6 +147,21 @@ def file_data(ctx, path):
         ctx.obj["src_ip"], ctx.obj["src_port"], ctx.obj["dst_ip"], ctx.obj["dst_port"]
     )
     file_client.file_data(path)
+
+
+@cli.command()
+@click.option("-f", type=click.Path(True), help="Data to process", required=True)
+@click.option(
+    "-o",
+    type=str,
+    help="Output file",
+    default=f"output_{get_current_datetime()}.xls",
+)
+def render(f, o):
+    """Render the payload structure in Excel"""
+    click.echo(f"Rendering illustrator {f} and writing to {o}")
+    excel_creator = TCPacketIllustrator(f)
+    excel_creator.create_excel(o)
 
 
 if __name__ == "__main__":

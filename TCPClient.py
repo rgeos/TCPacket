@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-from scapy.all import *
-from scapy.layers.inet import TCP, IP
 import socket
 import sys
+
+from scapy.all import *
+from scapy.layers.inet import TCP, IP
 
 from FileReader import FileReader
 

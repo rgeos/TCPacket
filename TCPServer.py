@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
-from scapy.all import *
-from scapy.layers.inet import TCP, IP
-import threading
 import socket
 import sys
+import threading
+
+from scapy.all import *
+from scapy.layers.inet import TCP, IP
 
 
 class TCPServer:

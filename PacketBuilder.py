@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from scapy.all import *
+
 from FileReader import FileReader
 
 
