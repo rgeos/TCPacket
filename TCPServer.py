@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
-import socket
-import sys
-import threading
-
 from scapy.all import *
 from scapy.layers.inet import TCP, IP
+
+from DataManager import DatabaseManager
 
 
 class TCPServer:
@@ -16,14 +14,17 @@ class TCPServer:
     def __init__(self, ip="0.0.0.0", port=12345):
         self.ip = ip
         self.port = port
-        self.server_socket = None
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.seq_number = 0
+        self.db_manager = DatabaseManager()
 
     def start(self):
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.ip, self.port))
         self.server_socket.listen(5)
         print(f"Server started on  {self.ip}:{self.port}. Press Ctrl+C to stop.")
+
+        # capture the packets and store it in DB
+        self.capture_incoming_traffic()
 
         try:
             while True:
@@ -36,100 +37,122 @@ class TCPServer:
         except KeyboardInterrupt:
             print("\nShutting down the server.")
             self.server_socket.close()
+            self.db_manager.close()
             sys.exit()
+
+    def capture_incoming_traffic(self):
+        """Capturing incoming traffic on port 99"""
+        print(f"Capture Incoming Traffic...")
+        sniff(
+            filter=f"tcp and port {self.port}",
+            prn=self.store_payload,
+        )
+
+    def store_payload(self, pkt):
+        """Filtering PSH & PSH-ACK"""
+        if (
+            pkt[TCP].dport == self.port
+            and pkt.haslayer("TCP")
+            and pkt[TCP].flags == (0x08 | 0x18)
+        ):
+            payload = bytes(pkt[TCP].payload)
+            print(f"We got {payload} from {pkt[IP].src}:{pkt[IP].sport}")
+            self.db_manager.save_packet(payload)
 
     def handle_client(self, client_socket):
         while True:
-            packet = self.receive_packet(client_socket)
-            if not packet:
+            pkt = self.receive_packet(client_socket)
+            if not pkt:
                 break  # Exit if no packet received
 
-            self.process_packet(packet)
+            self.process_packet(pkt)
 
         client_socket.close()
         print("Client connection closed.")
 
-    def receive_packet(self, client_socket):
-        raw_data = client_socket.recv(4096)
+    @staticmethod
+    def receive_packet(client_socket):
+        raw_data = client_socket.recv(4096)  # adjust the buffer as needed
         if not raw_data:
             return None
         return IP(raw_data)
 
-    def process_packet(self, packet):
-        if TCP in packet and packet[TCP].dport == self.port:
-            payload = packet[TCP].payload
+    def process_packet(self, pkt):
+        if TCP in pkt and pkt[TCP].dport == self.port:
+            payload = pkt[TCP].payload
             print(f"Received TCP payload: {payload}")
 
             # Check for SYN (0x02) and respond accordingly
-            if packet[TCP].flags == "S":
+            if pkt[TCP].flags == "S":
                 print("Received SYN. Acknowledging client...")
-                self.tcp_ack_packet(packet, True)
+                self.tcp_ack_packet(pkt, True)
+
             # Check for SYN-ACK (0x12) and respond accordingly
-            elif packet[TCP].flags == "SA":
+            elif pkt[TCP].flags == "SA":
                 print("Received SYN-ACK. Acknowledging client...")
-                self.tcp_ack_packet(packet)
-            # Check for PUSH (0x08) and respond accordingly
-            elif packet[TCP].flags == "P":
-                print("Received PUSH, Acknowledging client...")
-                self.tcp_ack_packet(packet)
+                self.tcp_ack_packet(pkt)
+
+            # Check for PSH (0x08) or PSH-ACK (0x18)and respond accordingly
+            # we will be writing to the DB the payload
+            elif pkt[TCP].flags == (0x08 | 0x18):
+                print("Received PUSH Acknowledging client...")
+                self.tcp_ack_packet(pkt)
+
             # Check for FIN (0x01) and respond accordingly
-            elif packet[TCP].flags == "F":
+            elif pkt[TCP].flags == "F":
                 print("Received FIN. Closing connection...")
-                self.tcp_ack_packet(packet)
-                self.tcp_terminate_connection(packet)
+                self.tcp_ack_packet(pkt)
+                self.tcp_terminate_connection(pkt)
+
             # Check for RST (0x04) and respond accordingly
-            elif packet[TCP].flags == "R":
+            elif pkt[TCP].flags == "R":
                 print("Received RESET. Closing connection...")
 
-    def tcp_ack_packet(self, packet, is_syn_ack=False):
-        """
-        Send ACK or SYN-ACK responses
-        """
+    def tcp_ack_packet(self, pkt, is_syn_ack=False):
+        """Send ACK or SYN-ACK responses"""
         print(
-            f"{'SYN-ACK' if is_syn_ack else 'ACK'} packet sent to {packet[IP].dst}:{packet[TCP].dport}"
+            f"{'SYN-ACK' if is_syn_ack else 'ACK'} packet sent to {pkt[IP].dst}:{pkt[TCP].dport}"
         )
-        ip = IP(
-            src=packet[IP].dst, dst=packet[IP].src
-        )  # Swap source and destination IPs
+        ip = IP(src=pkt[IP].dst, dst=pkt[IP].src)  # Swap source and destination IPs
         if is_syn_ack:
             tcp = TCP(
-                sport=packet[TCP].dport,
-                dport=packet[TCP].sport,
+                sport=pkt[TCP].dport,
+                dport=pkt[TCP].sport,
                 flags="SA",
-                ack=packet[TCP].seq + 1,
+                ack=pkt[TCP].seq + 1,
             )
         else:
             tcp = TCP(
-                sport=packet[TCP].dport,
-                dport=packet[TCP].sport,
+                sport=pkt[TCP].dport,
+                dport=pkt[TCP].sport,
                 flags="A",
-                ack=packet[TCP].seq + 1,
+                ack=pkt[TCP].seq + 1,
             )
         send(ip / tcp)
 
-    def tcp_terminate_connection(self, packet):
+    def tcp_terminate_connection(self, pkt):
         # Send FIN packet to the client to terminate the connection
         print("Initiating connection termination...")
-        ip = IP(src=packet[IP].dst, dst=packet[IP].src)
+        ip = IP(src=pkt[IP].dst, dst=pkt[IP].src)
         tcp = TCP(
-            sport=packet[TCP].dport,
-            dport=packet[TCP].sport,
+            sport=pkt[TCP].dport,
+            dport=pkt[TCP].sport,
             flags="F",
-            ack=packet[TCP].seq,
+            ack=pkt[TCP].seq,
         )
         send(ip / tcp)
 
         # Wait for final ACK from client
         print("Waiting for final ACK from client...")
-        ack_packet = self.receive_packet(packet[TCP].sport)
+        ack_packet = self.receive_packet(pkt[TCP].sport)
         if ack_packet and ack_packet.haslayer(TCP) and ack_packet[TCP].flags == "A":
             print("Connection termination complete.")
 
-    def tcp_3_way_handshake(self, packet):
+    def tcp_3_way_handshake(self, pkt):
         # Step 1: Send SYN
-        syn = IP(src=packet[IP].src, dst=packet[IP].dst) / TCP(
-            sport=packet[TCP].sport,
-            dport=packet[TCP].dport,
+        syn = IP(src=pkt[IP].src, dst=pkt[IP].dst) / TCP(
+            sport=pkt[TCP].sport,
+            dport=pkt[TCP].dport,
             flags="S",
             seq=self.seq_number,
         )
@@ -137,7 +160,7 @@ class TCPServer:
 
         # Step 2: Wait for SYN-ACK
         syn_ack = sniff(
-            filter=f"tcp and src host {packet[IP].dst} and tcp port {packet[TCP].dport}",
+            filter=f"tcp and src host {pkt[IP].dst} and tcp port {pkt[TCP].dport}",
             prn=lambda x: x,
             count=1,
             store=0,
@@ -149,9 +172,9 @@ class TCPServer:
 
         # Step 3: Send ACK
         self.seq_number += 1  # Increment sequence number for ACK
-        ack = IP(src=packet[IP].dst, dst=packet[IP].src) / TCP(
-            sport=packet[TCP].dport,
-            dport=packet[TCP].sport,
+        ack = IP(src=pkt[IP].dst, dst=pkt[IP].src) / TCP(
+            sport=pkt[TCP].dport,
+            dport=pkt[TCP].sport,
             flags="A",
             seq=self.seq_number,
             ack=syn_ack[0][TCP].seq + 1,
@@ -161,22 +184,22 @@ class TCPServer:
         print("Three-way handshake completed successfully.")
         return True
 
-    def tcp_initiate_connection_close(self, packet):
+    def tcp_initiate_connection_close(self, pkt):
         """
         Terminate connection initiated by server
         """
         # Step 1: Send FIN
-        fin = IP(src=packet[IP].dst, dst=packet[IP].src) / TCP(
-            sport=packet[TCP].dport,
-            dport=packet[TCP].sport,
+        fin = IP(src=pkt[IP].dst, dst=pkt[IP].src) / TCP(
+            sport=pkt[TCP].dport,
+            dport=pkt[TCP].sport,
             flags="F",
-            ack=packet[TCP].seq,
+            ack=pkt[TCP].seq,
         )
         send(fin)
 
         # Step 2: Wait for FIN-ACK
         fin_ack = sniff(
-            filter=f"tcp and src host {packet[IP].dst} and tcp port {packet[IP].sport}",
+            filter=f"tcp and src host {pkt[IP].dst} and tcp port {pkt[IP].sport}",
             prn=lambda x: x,
             count=1,
             store=0,
@@ -188,9 +211,9 @@ class TCPServer:
 
         # Step 3: Send final ACK
         self.seq_number += 1  # Increment sequence number for final ACK
-        final_ack = IP(src=packet[IP].dst, dst=packet[IP].src) / TCP(
-            sport=packet[TCP].dport,
-            dport=packet[TCP].sport,
+        final_ack = IP(src=pkt[IP].dst, dst=pkt[IP].src) / TCP(
+            sport=pkt[TCP].dport,
+            dport=pkt[TCP].sport,
             flags="A",
             seq=self.seq_number,
             ack=fin_ack[0][TCP].seq + 1,
